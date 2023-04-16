@@ -1,8 +1,9 @@
 import configparser
 import os
 import subprocess
-import requests
 import urllib.request
+from tqdm import tqdm
+
 
 config = configparser.ConfigParser()
 config_file = 'config.ini'
@@ -12,18 +13,33 @@ gnuplot_section = 'Gnuplot'
 gnuplot_option = 'path'
 
 
+def repeat_forever(func):
+    def wrapper(*args, **kwargs):
+        while True:
+            func(*args, **kwargs)
+    return wrapper
+
+
 def main_menu():
     print_with_clear('Выберите действие:\n[1] Настройка пути к MinGW/GCC и Gnuplot\n[2] Построение графиков\n'
                      '[3] Установка MinGW/GCC')
     type_action = input()
-    return type_action
+    if type_action == '1':
+        setting_menu()
+    elif type_action == '2':
+        pass
+    elif type_action == '3':
+        installing_software()
 
 def setting_menu():
-    print_with_clear('Выберите действие:\n[1] Найти путь к утилитам самостоятельно\n[2] Указать вручную')
+    print_with_clear('Выберите действие:\n[1] Найти путь к утилитам автоматически\n[2] Указать вручную')
     setting_path = input()
     print_with_clear('Выберите программу:\n[1] MinGW/GCC\n[2] Gnuplot')
     utility_type = input()
-    return setting_path, utility_type
+    if setting_path == '1':
+        path_automation(utility_type)
+    elif setting_path == '2':
+        path_manually(utility_type)
 
 def find_mingw_bin():
     possible_paths = ['C:\\', 'C:\\Program Files', 'C:\\Program Files (x86)']
@@ -35,13 +51,33 @@ def find_mingw_bin():
                 return bin_path
     return None
 
-def installing_mingw():
-    # Download MinGW installer
-    url = 'https://sourceforge.net/projects/mingw/files/latest/download'
 
-    filename = 'mingw-setup.exe'
-    urllib.request.urlretrieve(url, filename)
-    subprocess.Popen([filename, '-y', '--no-admin', '--wait', '--wait-children'])
+def reporthook(count, block_size, total_size):
+    percent = int(count * block_size * 100 / total_size)
+    print(f"Downloaded {count * block_size} bytes out of {total_size} bytes ({percent}%)", end="\r")
+
+
+def installing_software():
+    # Download MinGW installer
+    print_with_clear('Выберите программу:\n[1] MinGW\n[2] Gnuplot')
+    utility_type = input()
+    if utility_type == '1':
+        url = 'https://sourceforge.net/projects/mingw/files/latest/download'
+        filename = 'mingw-setup.exe'
+        with tqdm(unit="B", unit_scale=True, unit_divisor=1024, miniters=1, desc=filename) as t:
+            urllib.request.urlretrieve(url, filename,
+                                       reporthook=lambda count, block_size, total_size: t.update(block_size))
+        print("\nMinGW скачан как: ", filename)
+        subprocess.Popen([filename, '-y', '--no-admin', '--wait', '--wait-children'])
+    elif utility_type == '2':
+        url = 'https://sourceforge.net/projects/gnuplot/files/latest/download'
+        filename = 'gnuplot-setup.exe'
+        with tqdm(unit="B", unit_scale=True, unit_divisor=1024, miniters=1, desc=filename) as t:
+            urllib.request.urlretrieve(url, filename,
+                                       reporthook=lambda count, block_size, total_size: t.update(block_size))
+        print("\nGnuplot скачан как: ", filename)
+        subprocess.Popen([filename, '-y', '--no-admin', '--wait', '--wait-children'])
+    main_menu()
 
 
 def path_automation(utility_type):
@@ -50,10 +86,37 @@ def path_automation(utility_type):
         if mingw_bin:
             print(f'Путь к MinGW/GCC: {mingw_bin}')
             utility_action = input('Использовать этот путь? [y/n]: ')
+            if utility_action == 'y':
+                config.set(gcc_section, gcc_option, mingw_bin)
+                with open(config_file, 'w') as f:
+                    config.write(f)
+            elif utility_action == 'n':
+                pass
         else:
             print('Папка не найдена')
-    elif utility_type == '2':
+    elif utility_type == '2':  # Автоматическое указание пути к Gnuplot
         pass
+    print_with_clear('Вернуться к:\n[1] Настройке\n[2] Главное меню')
+    menu_stage = input()
+    if menu_stage == '1':
+        setting_menu()
+    elif menu_stage == '2':
+        main_menu()
+
+
+def path_manually(utility_type):
+    if utility_type == '1':
+        print('Введите путь к MinGW/GCC')
+        gcc_path = input()
+        config.set(gcc_section, gcc_option, gcc_path)
+        with open(config_file, 'w') as f:
+            config.write(f)
+    elif utility_type == '2':
+        print('Введите путь к Gnuplot')
+        gnuplot_path = input()
+        config.set(gnuplot_section, gnuplot_option, gnuplot_path)
+        with open(config_file, 'w') as f:
+            config.write(f)
     print_with_clear('Вернуться к:\n[1] Настройке\n[2] Главное меню')
     menu_stage = input()
     if menu_stage == '1':
@@ -67,18 +130,7 @@ def print_with_clear(text: str):
     #os.system(['clear', 'cls'][os.name == os.sys.platform])
     print(text)
 
-
-type_action = main_menu()
-if type_action == '1':
-    setting_path = setting_menu()
-    pick_program()
-elif type_action == '2':
-    pass
-elif type_action == '3':
-    installing_mingw()
-
-
-
+main_menu()
 # Проверяем, есть ли файл конфигурации
 # if not config.has_section(gcc_section):
 #     # Если файл конфигурации не существует или нет секции для GCC, запрашиваем путь
