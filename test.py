@@ -43,11 +43,41 @@ def setting_menu():
     elif setting_path == '2':
         path_manually(utility_type)
 
+
 def building_graphs():
     mingw_path = config.get(gcc_section, gcc_option)
     gnuplot_path = config.get(gnuplot_section, gnuplot_option)
     print_with_clear('Использую пути:\nMinGW/GCC: {}\nGnuplot: {}'.format(mingw_path, gnuplot_path))
-    graphs_folder = input('Укажите путь к папке с файлами для построения графиков: ')
+    while True:
+        graphs_folder = input('Укажите путь к папке с файлами для построения графиков: ')
+        # Получаем список файлов .c в папке и выводим их на экран
+        files = [f for f in os.listdir(graphs_folder) if f.endswith('.c')]
+        if not files:
+            print('В папке нет файлов с расширением .c, попробуйте ввести другой путь')
+            continue
+        else:
+            break
+
+    for i, f in enumerate(files):
+        print(f'[{i}] {f}')
+
+    # Пользователь выбирает номер файла для компиляции
+    choice = int(input('Выберите файл для компиляции: '))
+    filename = files[int(choice)-1]
+    c_file = os.path.join(graphs_folder, filename)
+
+    # Компилируем выбранный файл в exe
+    proc = subprocess.run([mingw_path, '-o', os.path.splittext(c_file)[0], c_file], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if proc.returncode == 0:
+        print('Компиляция прошла успешно!')
+    # Если произошла ошибка, выводим ее на экран
+    else:
+        print('Ошибка компиляции:')
+        print(proc.stderr.decode('utf-8'))
+
+
+
+
 
 def find_mingw_bin():
     possible_paths = ['C:\\', 'C:\\Program Files', 'C:\\Program Files (x86)']
