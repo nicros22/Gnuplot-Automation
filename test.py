@@ -59,15 +59,16 @@ def building_graphs():
             break
 
     for i, f in enumerate(files):
-        print(f'[{i}] {f}')
+        print(f'[{i+1}] {f}')
 
     # Пользователь выбирает номер файла для компиляции
     choice = int(input('Выберите файл для компиляции: '))
     filename = files[int(choice)-1]
     c_file = os.path.join(graphs_folder, filename)
+    print(f"Файл: {c_file}")
 
     # Компилируем выбранный файл в exe
-    proc = subprocess.run([mingw_path, '-o', os.path.splittext(c_file)[0], c_file], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.run([mingw_path, '-o', os.path.splitext(c_file)[0], c_file], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if proc.returncode == 0:
         print('Компиляция прошла успешно!')
     # Если произошла ошибка, выводим ее на экран
@@ -82,7 +83,7 @@ def building_graphs():
 def find_mingw_bin():
     possible_paths = ['C:\\', 'C:\\Program Files', 'C:\\Program Files (x86)']
     for path in possible_paths:
-        mingw_path = os.path.join(path, 'MinGW')
+        mingw_path = os.path.join(path, 'TDM-GCC-64')
         if os.path.exists(mingw_path):
             bin_path = os.path.join(mingw_path, 'bin\\gcc.exe')
             if os.path.exists(bin_path):
@@ -101,9 +102,17 @@ def find_gnuplot_bin():
     return None
 
 
-def reporthook(count, block_size, total_size):
-    percent = int(count * block_size * 100 / total_size)
-    print(f"Downloaded {count * block_size} bytes out of {total_size} bytes ({percent}%)", end="\r")
+def download_file(url, filename):
+    with tqdm(unit="B", unit_scale=True, unit_divisor=1024, miniters=1, desc=filename) as t:
+        def reporthook(count, block_size, total_size):
+            progress_bytes = count * block_size
+            if total_size > 0:
+                progress_percent = progress_bytes / total_size * 100
+                t.update(block_size)
+                t.set_postfix(percent=f"{progress_percent:.1f}%")
+            else:
+                t.update(block_size)
+        urllib.request.urlretrieve(url, filename, reporthook=reporthook)
 
 
 def installing_software():
@@ -111,21 +120,19 @@ def installing_software():
     print_with_clear('Выберите программу:\n[1] MinGW\n[2] Gnuplot')
     utility_type = input()
     if utility_type == '1':
-        url = 'https://sourceforge.net/projects/mingw/files/latest/download'
-        filename = 'mingw-setup.exe'
-        with tqdm(unit="B", unit_scale=True, unit_divisor=1024, miniters=1, desc=filename) as t:
-            urllib.request.urlretrieve(url, filename,
-                                       reporthook=lambda count, block_size, total_size: t.update(block_size))
+        url = 'https://sourceforge.net/projects/tdm-gcc/files/TDM-GCC%20Installer/tdm64-gcc-5.1.0-2.exe/download'
+        filename = 'tdm64-gcc-5.1.0-2.exe'
+        print(f"Скачиваю по ссылке: {url}")
+        download_file(url, filename)
         print("\nMinGW скачан как: ", filename)
-        subprocess.Popen([filename, '-y', '--no-admin', '--wait', '--wait-children'])
+        subprocess.Popen([filename, '-y', '--admin', '--wait', '--wait-children'])
     elif utility_type == '2':
         url = 'https://sourceforge.net/projects/gnuplot/files/latest/download'
         filename = 'gnuplot-setup.exe'
-        with tqdm(unit="B", unit_scale=True, unit_divisor=1024, miniters=1, desc=filename) as t:
-            urllib.request.urlretrieve(url, filename,
-                                       reporthook=lambda count, block_size, total_size: t.update(block_size))
+        print(f"Скачиваю по ссылке: {url}")
+        download_file(url, filename)
         print("\nGnuplot скачан как: ", filename)
-        subprocess.Popen([filename, '-y', '--no-admin', '--wait', '--wait-children'])
+        subprocess.Popen([filename, '-y', '--admin', '--wait', '--wait-children'])
     main_menu()
 
 
@@ -167,7 +174,6 @@ def path_automation(utility_type):
 def path_manually(utility_type):
     if utility_type == '1':
         print_with_clear('Введите путь к папке MinGW/GCC:')
-        print(utility_type)
         mingw_path = input()
         mingw_path = os.path.join(mingw_path, 'bin\\gcc.exe')
         if not os.path.exists(mingw_path):
