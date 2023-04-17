@@ -7,10 +7,11 @@ from tqdm import tqdm
 
 config = configparser.ConfigParser()
 config_file = 'config.ini'
-gcc_section = 'GCC'
-gcc_option = 'path'
+gcc_section = 'MinGW-GCC'
+gcc_option = 'path-to-MinGW'
 gnuplot_section = 'Gnuplot'
-gnuplot_option = 'path'
+gnuplot_option = 'path-to-gnuplot'
+config.read('config.ini')
 
 
 def repeat_forever(func):
@@ -20,6 +21,7 @@ def repeat_forever(func):
     return wrapper
 
 
+@repeat_forever
 def main_menu():
     print_with_clear('Выберите действие:\n[1] Настройка пути к MinGW/GCC и Gnuplot\n[2] Построение графиков\n'
                      '[3] Установка MinGW/GCC')
@@ -27,12 +29,12 @@ def main_menu():
     if type_action == '1':
         setting_menu()
     elif type_action == '2':
-        pass
+        building_graphs()
     elif type_action == '3':
         installing_software()
 
 def setting_menu():
-    print_with_clear('Выберите действие:\n[1] Найти путь к утилитам автоматически\n[2] Указать вручную')
+    print_with_clear('Выберите действие:\n[1] Найти путь к утилитам автоматически\n[2] Указать папку вручную')
     setting_path = input()
     print_with_clear('Выберите программу:\n[1] MinGW/GCC\n[2] Gnuplot')
     utility_type = input()
@@ -41,12 +43,29 @@ def setting_menu():
     elif setting_path == '2':
         path_manually(utility_type)
 
+def building_graphs():
+    mingw_path = config.get(gcc_section, gcc_option)
+    gnuplot_path = config.get(gnuplot_section, gnuplot_option)
+    print_with_clear('Использую пути:\nMinGW/GCC: {}\nGnuplot: {}'.format(mingw_path, gnuplot_path))
+    graphs_folder = input('Укажите путь к папке с файлами для построения графиков: ')
+
 def find_mingw_bin():
     possible_paths = ['C:\\', 'C:\\Program Files', 'C:\\Program Files (x86)']
     for path in possible_paths:
         mingw_path = os.path.join(path, 'MinGW')
         if os.path.exists(mingw_path):
-            bin_path = os.path.join(mingw_path, 'bin')
+            bin_path = os.path.join(mingw_path, 'bin\\gcc.exe')
+            if os.path.exists(bin_path):
+                return bin_path
+    return None
+
+
+def find_gnuplot_bin():
+    possible_paths = ['C:\\', 'C:\\Program Files', 'C:\\Program Files (x86)']
+    for path in possible_paths:
+        mingw_path = os.path.join(path, 'gnuplot')
+        if os.path.exists(mingw_path):
+            bin_path = os.path.join(mingw_path, 'bin\\wgnuplot.exe')
             if os.path.exists(bin_path):
                 return bin_path
     return None
@@ -84,7 +103,7 @@ def path_automation(utility_type):
     if utility_type == '1':
         mingw_bin = find_mingw_bin()
         if mingw_bin:
-            print(f'Путь к MinGW/GCC: {mingw_bin}')
+            print_with_clear(f'Путь к MinGW/GCC: {mingw_bin}')
             utility_action = input('Использовать этот путь? [y/n]: ')
             if utility_action == 'y':
                 config.set(gcc_section, gcc_option, mingw_bin)
@@ -94,8 +113,19 @@ def path_automation(utility_type):
                 pass
         else:
             print('Папка не найдена')
-    elif utility_type == '2':  # Автоматическое указание пути к Gnuplot
-        pass
+    if utility_type == '2':  # Автоматическое указание пути к Gnuplot
+        gnuplot_bin = find_gnuplot_bin()
+        if gnuplot_bin:
+            print_with_clear(f'Путь к Gnuplot: {gnuplot_bin}')
+            utility_action = input('Использовать этот путь? [y/n]: ')
+            if utility_action == 'y':
+                config.set(gnuplot_section, gnuplot_option, gnuplot_bin)
+                with open(config_file, 'w') as f:
+                    config.write(f)
+            elif utility_action == 'n':
+                pass
+        else:
+            print('Папка не найдена')
     print_with_clear('Вернуться к:\n[1] Настройке\n[2] Главное меню')
     menu_stage = input()
     if menu_stage == '1':
@@ -106,18 +136,29 @@ def path_automation(utility_type):
 
 def path_manually(utility_type):
     if utility_type == '1':
-        print('Введите путь к MinGW/GCC')
-        gcc_path = input()
-        config.set(gcc_section, gcc_option, gcc_path)
+        print_with_clear('Введите путь к папке MinGW/GCC:')
+        print(utility_type)
+        mingw_path = input()
+        mingw_path = os.path.join(mingw_path, 'bin\\gcc.exe')
+        if not os.path.exists(mingw_path):
+            input('Путь не найден')
+            setting_menu()
+        print_with_clear(f'Выбран путь: {mingw_path}')
+        config.set(gcc_section, gcc_option, mingw_path)
         with open(config_file, 'w') as f:
             config.write(f)
     elif utility_type == '2':
-        print('Введите путь к Gnuplot')
+        print_with_clear('Введите путь к папке Gnuplot:')
         gnuplot_path = input()
+        gnuplot_path = os.path.join(gnuplot_path, 'bin\\wgnuplot.exe')
+        if not os.path.exists(gnuplot_path):
+            input('Путь не найден')
+            setting_menu()
+        print_with_clear(f'Выбран путь: {gnuplot_path}')
         config.set(gnuplot_section, gnuplot_option, gnuplot_path)
         with open(config_file, 'w') as f:
             config.write(f)
-    print_with_clear('Вернуться к:\n[1] Настройке\n[2] Главное меню')
+    print('Вернуться к:\n[1] Настройке\n[2] Главное меню')
     menu_stage = input()
     if menu_stage == '1':
         setting_menu()
