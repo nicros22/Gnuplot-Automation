@@ -62,19 +62,30 @@ def building_graphs():
         print(f'[{i+1}] {f}')
 
     # Пользователь выбирает номер файла для компиляции
-    choice = int(input('Выберите файл для компиляции: '))
-    filename = files[int(choice)-1]
+    while True:
+        choice = input('Выберите файл для компиляции (введите номер или название файла): ')
+        if choice.isdigit():
+            index = int(choice) - 1
+            if 0 <= index < len(files):
+                filename = files[index]
+                break
+        elif os.path.isfile(os.path.join(graphs_folder, choice)):
+            filename = choice
+            break
+        print('Некорректный выбор, попробуйте снова.')
+
     c_file = os.path.join(graphs_folder, filename)
     print(f"Файл: {c_file}")
 
     # Компилируем выбранный файл в exe
-    proc = subprocess.run([mingw_path, '-o', os.path.splitext(c_file)[0], c_file], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.run([mingw_path, '-o', f'{os.path.splitext(c_file)[0]}.exe', c_file], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if proc.returncode == 0:
         print('Компиляция прошла успешно!')
     # Если произошла ошибка, выводим ее на экран
     else:
         print('Ошибка компиляции:')
         print(proc.stderr.decode('utf-8'))
+    input('Нажмите Enter для продолжения...')
 
 
 
