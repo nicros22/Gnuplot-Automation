@@ -13,6 +13,78 @@ gnuplot_section = 'Gnuplot'
 gnuplot_option = 'path-to-gnuplot'
 config.read('config.ini')
 
+class GraphBuilder:
+    def __init__(self, mingw_path, gnuplot_path):
+        self.mingw_path = mingw_path
+        self.gnuplot_path = gnuplot_path
+
+    def build_project(self, file):
+        # Компилируем выбранный файл в exe
+        proc = subprocess.run([self.mingw_path, '-o', f'{os.path.splitext(file)[0]}.exe', file], stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE)
+        if proc.returncode == 0:
+            print('Компиляция прошла успешно!')
+        # Если произошла ошибка, выводим ее на экран
+        else:
+            print('Ошибка компиляции:')
+            print(proc.stderr.decode('utf-8'))
+        exe_file = f'{os.path.splitext(file)[0]}.exe'
+        self.run_project(exe_file)
+
+
+    def run_project(self, exe_file):
+        with open('data.dat', 'w') as f:
+            run_proc = subprocess.run([exe_file], stdout=f, stderr=subprocess.PIPE)
+        if run_proc.returncode == 0:
+            print('Данные успешно записаны в файл data.dat')
+            input('Нажмите Enter для продолжения...')
+        # Если произошла ошибка, выводим ее на экран
+        else:
+            print('Ошибка компиляции:')
+            print(run_proc.stderr.decode('utf-8'))
+
+
+    def gnuplot_action(self):
+
+
+    def building_graphs(self):
+        print_with_clear('Использую пути:\nMinGW/GCC: {}\nGnuplot: {}'.format(self.mingw_path, self.gnuplot_path))
+        while True:
+            graphs_folder = input('Укажите путь к папке с файлами для построения графиков: ')
+            # Получаем список файлов .c в папке и выводим их на экран
+            files = sorted(os.listdir(graphs_folder), key=lambda x: x.split('.')[-1])
+            files = [f for f in files if f.endswith('.c') or f.endswith('.exe')]
+            if not files:
+                print('В папке нет файлов с расширением .c или .exe, попробуйте ввести другой путь')
+                continue
+            else:
+                break
+
+        for i, f in enumerate(files):
+            print(f'[{i+1}] {f}')
+
+        # Пользователь выбирает номер файла для компиляции
+        while True:
+            choice = input('Выберите файл для компиляции (введите номер или название файла): ')
+            if choice.isdigit():
+                index = int(choice) - 1
+                if 0 <= index < len(files):
+                    filename = files[index]
+                    break
+            elif os.path.isfile(os.path.join(graphs_folder, choice)):
+                filename = choice
+                break
+            print('Некорректный выбор, попробуйте снова.')
+
+        c_file = os.path.join(graphs_folder, filename)
+        print(f"Файл: {c_file}")
+        file_extension = os.path.splitext(c_file)[1]
+
+        if file_extension == '.exe':
+            self.run_project(c_file)
+        elif file_extension == '.c':
+            self.build_project(c_file)
+
 
 def repeat_forever(func):
     def wrapper(*args, **kwargs):
@@ -29,7 +101,10 @@ def main_menu():
     if type_action == '1':
         setting_menu()
     elif type_action == '2':
-        building_graphs()
+        mingw_path = config.get(gcc_section, gcc_option)
+        gnuplot_path = config.get(gnuplot_section, gnuplot_option)
+        graph_builder = GraphBuilder(mingw_path, gnuplot_path)
+        graph_builder.building_graphs()
     elif type_action == '3':
         installing_software()
 
@@ -42,53 +117,6 @@ def setting_menu():
         path_automation(utility_type)
     elif setting_path == '2':
         path_manually(utility_type)
-
-
-def building_graphs():
-    mingw_path = config.get(gcc_section, gcc_option)
-    gnuplot_path = config.get(gnuplot_section, gnuplot_option)
-    print_with_clear('Использую пути:\nMinGW/GCC: {}\nGnuplot: {}'.format(mingw_path, gnuplot_path))
-    while True:
-        graphs_folder = input('Укажите путь к папке с файлами для построения графиков: ')
-        # Получаем список файлов .c в папке и выводим их на экран
-        files = [f for f in os.listdir(graphs_folder) if f.endswith('.c')]
-        if not files:
-            print('В папке нет файлов с расширением .c, попробуйте ввести другой путь')
-            continue
-        else:
-            break
-
-    for i, f in enumerate(files):
-        print(f'[{i+1}] {f}')
-
-    # Пользователь выбирает номер файла для компиляции
-    while True:
-        choice = input('Выберите файл для компиляции (введите номер или название файла): ')
-        if choice.isdigit():
-            index = int(choice) - 1
-            if 0 <= index < len(files):
-                filename = files[index]
-                break
-        elif os.path.isfile(os.path.join(graphs_folder, choice)):
-            filename = choice
-            break
-        print('Некорректный выбор, попробуйте снова.')
-
-    c_file = os.path.join(graphs_folder, filename)
-    print(f"Файл: {c_file}")
-
-    # Компилируем выбранный файл в exe
-    proc = subprocess.run([mingw_path, '-o', f'{os.path.splitext(c_file)[0]}.exe', c_file], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if proc.returncode == 0:
-        print('Компиляция прошла успешно!')
-    # Если произошла ошибка, выводим ее на экран
-    else:
-        print('Ошибка компиляции:')
-        print(proc.stderr.decode('utf-8'))
-    input('Нажмите Enter для продолжения...')
-
-
-
 
 
 def find_mingw_bin():
@@ -218,40 +246,5 @@ def print_with_clear(text: str):
     #os.system(['clear', 'cls'][os.name == os.sys.platform])
     print(text)
 
+
 main_menu()
-# Проверяем, есть ли файл конфигурации
-# if not config.has_section(gcc_section):
-#     # Если файл конфигурации не существует или нет секции для GCC, запрашиваем путь
-#     gcc_path = input("Please enter the path to GCC: ")
-#
-#     # Создаем секцию для GCC и сохраняем путь
-#     config.set(gcc_section, gcc_option, gcc_path)
-#
-#     # Сохраняем файл конфигурации
-#     with open(config_file, 'w') as f:
-#         config.write(f)
-# else:
-#     # Если файл конфигурации существует и есть секция для GCC, используем сохраненный путь
-#     gcc_path = config.get(gcc_section, gcc_option)
-#
-# # Путь к вашему файлу .c
-# source_file = "path/to/your/source/file.c"
-#
-# # Путь для сохранения .exe файла
-# output_file = "path/to/your/output/file.exe"
-#
-# # Команда для вызова компилятора
-# command = [gcc_path, source_file, "-o", output_file]
-#
-# # Запускаем процесс и ждем его завершения
-# proc = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-#
-# # Получаем вывод компилятора
-# output = proc.stdout.decode('utf-8')
-#
-# # Если произошла ошибка, выводим ее на экран
-# if proc.returncode != 0:
-#     print("Compilation error:")
-#     print(output)
-# else:
-#     print("Compilation successful!")
