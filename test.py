@@ -13,45 +13,88 @@ gnuplot_section = 'Gnuplot'
 gnuplot_option = 'path-to-gnuplot'
 config.read('config.ini')
 
+
+def print_with_clear(text: str):
+    os.system('cls')
+    #os.system(['clear', 'cls'][os.name == os.sys.platform])
+    print(text)
+
+
+def repeat_forever(func):
+    def wrapper(*args, **kwargs):
+        while True:
+            func(*args, **kwargs)
+    return wrapper
 class GraphBuilder:
     def __init__(self, mingw_path, gnuplot_path):
         self.mingw_path = mingw_path
         self.gnuplot_path = gnuplot_path
 
-    def build_project(self, file):
+
+    @repeat_forever
+    def build_project(self, file, graphs_folder):
         # Компилируем выбранный файл в exe
         proc = subprocess.run([self.mingw_path, '-o', f'{os.path.splitext(file)[0]}.exe', file], stdout=subprocess.PIPE,
                               stderr=subprocess.PIPE)
         if proc.returncode == 0:
             print('Компиляция прошла успешно!')
+            self.run_project(f'{os.path.splitext(file)[0]}.exe', graphs_folder=graphs_folder)
         # Если произошла ошибка, выводим ее на экран
         else:
             print('Ошибка компиляции:')
             print(proc.stderr.decode('utf-8'))
+            project_action = input(
+                'Выберите действие:\n[1] Попробовать снова\n[2] Выбрать другой файл\n[3] Выбрать другую папку')
+            if project_action == '1':
+                self.build_project(file, graphs_folder=graphs_folder)
+            elif project_action == '2':
+                self.building_graphs(graphs_folder=graphs_folder)
+            elif project_action == '3':
+                self.building_graphs(graphs_folder=None)
         exe_file = f'{os.path.splitext(file)[0]}.exe'
         self.run_project(exe_file)
 
-
-    def run_project(self, exe_file):
-        with open('data.dat', 'w') as f:
+    @repeat_forever
+    def run_project(self, exe_file, graphs_folder):
+        print(exe_file)
+        input()
+        out_file = os.path.join(os.path.dirname(exe_file), 'out.dat')
+        print(out_file)
+        input()
+        with open(out_file, 'w') as f:
             run_proc = subprocess.run([exe_file], stdout=f, stderr=subprocess.PIPE)
         if run_proc.returncode == 0:
-            print('Данные успешно записаны в файл data.dat')
-            input('Нажмите Enter для продолжения...')
+            self.gnuplot_action(graphs_folder)
         # Если произошла ошибка, выводим ее на экран
         else:
             print('Ошибка компиляции:')
             print(run_proc.stderr.decode('utf-8'))
+            project_action = input('Выберите действие:\n[1] Попробовать снова\n[2] Выбрать другой файл\n[3] Выбрать другую папку')
+            if project_action == '1':
+                self.run_project(exe_file, graphs_folder=graphs_folder)
+            elif project_action == '2':
+                self.building_graphs(graphs_folder=graphs_folder)
+            elif project_action == '3':
+                self.building_graphs(graphs_folder=None)
 
 
-    def gnuplot_action(self):
+    def gnuplot_action(self, graphs_folder):
+        #plot "out.dat" using 1:2:3 with boxes fillstyle solid 0.5
+        print_with_clear("Введите команду для gnuplot:")
+        command = input("(по умолчанию 'plot \"out.dat\" using 1:2:3 with boxes fillstyle solid 0.5', если нажать Enter)")
+        if not command:
+            command = 'plot "{}" using 1:2:3 with boxes fillstyle solid 0.5'.format('out.dat')
+        subprocess.run([f'"{self.gnuplot_path}"', '-e', command])
 
+    
 
-    def building_graphs(self):
+    def building_graphs(self, graphs_folder=None):
         print_with_clear('Использую пути:\nMinGW/GCC: {}\nGnuplot: {}'.format(self.mingw_path, self.gnuplot_path))
         while True:
-            graphs_folder = input('Укажите путь к папке с файлами для построения графиков: ')
+            if graphs_folder is None:
+                graphs_folder = input('Укажите путь к папке с файлами для построения графиков: ')
             # Получаем список файлов .c в папке и выводим их на экран
+            print_with_clear(f'Список файлов в папке {graphs_folder}:')
             files = sorted(os.listdir(graphs_folder), key=lambda x: x.split('.')[-1])
             files = [f for f in files if f.endswith('.c') or f.endswith('.exe')]
             if not files:
@@ -81,16 +124,12 @@ class GraphBuilder:
         file_extension = os.path.splitext(c_file)[1]
 
         if file_extension == '.exe':
-            self.run_project(c_file)
+            self.run_project(c_file, graphs_folder)
         elif file_extension == '.c':
-            self.build_project(c_file)
+            self.build_project(c_file, graphs_folder)
 
 
-def repeat_forever(func):
-    def wrapper(*args, **kwargs):
-        while True:
-            func(*args, **kwargs)
-    return wrapper
+
 
 
 @repeat_forever
@@ -241,10 +280,6 @@ def path_manually(utility_type):
         main_menu()
 
 
-def print_with_clear(text: str):
-    os.system('cls')
-    #os.system(['clear', 'cls'][os.name == os.sys.platform])
-    print(text)
 
 
 main_menu()
