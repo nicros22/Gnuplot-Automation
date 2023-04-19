@@ -25,6 +25,8 @@ def repeat_forever(func):
         while True:
             func(*args, **kwargs)
     return wrapper
+
+
 class GraphBuilder:
     def __init__(self, mingw_path, gnuplot_path):
         self.mingw_path = mingw_path
@@ -56,14 +58,12 @@ class GraphBuilder:
 
     @repeat_forever
     def run_project(self, exe_file, graphs_folder):
-        print(exe_file)
-        input()
+        # Запускаем exe и сохраняем вывод в файл
         out_file = os.path.join(os.path.dirname(exe_file), 'out.dat')
-        print(out_file)
-        input()
         with open(out_file, 'w') as f:
             run_proc = subprocess.run([exe_file], stdout=f, stderr=subprocess.PIPE)
         if run_proc.returncode == 0:
+            print('Программа успешно завершила работу!')
             self.gnuplot_action(graphs_folder)
         # Если произошла ошибка, выводим ее на экран
         else:
@@ -79,14 +79,24 @@ class GraphBuilder:
 
 
     def gnuplot_action(self, graphs_folder):
-        #plot "out.dat" using 1:2:3 with boxes fillstyle solid 0.5
-        print_with_clear("Введите команду для gnuplot:")
-        command = input("(по умолчанию 'plot \"out.dat\" using 1:2:3 with boxes fillstyle solid 0.5', если нажать Enter)")
+        print("Введите команду для gnuplot:")
+        command = input("(По умолчанию 'plot \'out.dat\' using 1:2:3 with boxes fillstyle solid 0.5', если нажать Enter)\n")
         if not command:
-            command = 'plot "{}" using 1:2:3 with boxes fillstyle solid 0.5'.format('out.dat')
-        subprocess.run([f'"{self.gnuplot_path}"', '-e', command])
+            command = f'\"{self.gnuplot_path}\" -p -e \"plot \'out.dat\' using 1:2:3 with boxes fillstyle solid 0.5\"'
+        else:
+            command = f'\"{self.gnuplot_path}\" -p -e \"{command}\"'
+        subprocess.run(command, cwd=graphs_folder)
+        project_action = input('Выберите действие:\n[1] Построить по другой команде\n[2] Выбрать другой файл\n'
+                               '[3] Выбрать другую папку\n[4] Главное меню')
+        if project_action == '1':
+            self.gnuplot_action(graphs_folder)
+        elif project_action == '2':
+            self.building_graphs(graphs_folder=graphs_folder)
+        elif project_action == '3':
+            self.building_graphs(graphs_folder=None)
+        elif project_action == '4':
+            self.main_menu()
 
-    
 
     def building_graphs(self, graphs_folder=None):
         print_with_clear('Использую пути:\nMinGW/GCC: {}\nGnuplot: {}'.format(self.mingw_path, self.gnuplot_path))
@@ -172,10 +182,11 @@ def find_mingw_bin():
 def find_gnuplot_bin():
     possible_paths = ['C:\\', 'C:\\Program Files', 'C:\\Program Files (x86)']
     for path in possible_paths:
-        mingw_path = os.path.join(path, 'gnuplot')
-        if os.path.exists(mingw_path):
-            bin_path = os.path.join(mingw_path, 'bin\\wgnuplot.exe')
+        gnuplot_path = os.path.join(path, 'gnuplot')
+        if os.path.exists(gnuplot_path):
+            bin_path = os.path.join(gnuplot_path, 'bin')
             if os.path.exists(bin_path):
+                bin_path = bin_path + '\\gnuplot'
                 return bin_path
     return None
 
@@ -241,7 +252,7 @@ def path_automation(utility_type):
                 pass
         else:
             print('Папка не найдена')
-    print_with_clear('Вернуться к:\n[1] Настройке\n[2] Главное меню')
+    print('Вернуться к:\n[1] Настройке\n[2] Главное меню')
     menu_stage = input()
     if menu_stage == '1':
         setting_menu()
@@ -264,10 +275,11 @@ def path_manually(utility_type):
     elif utility_type == '2':
         print_with_clear('Введите путь к папке Gnuplot:')
         gnuplot_path = input()
-        gnuplot_path = os.path.join(gnuplot_path, 'bin\\wgnuplot.exe')
+        gnuplot_path = os.path.join(gnuplot_path, 'bin')
         if not os.path.exists(gnuplot_path):
             input('Путь не найден')
             setting_menu()
+        gnuplot_path = gnuplot_path + '\\gnuplot'
         print_with_clear(f'Выбран путь: {gnuplot_path}')
         config.set(gnuplot_section, gnuplot_option, gnuplot_path)
         with open(config_file, 'w') as f:
@@ -278,8 +290,6 @@ def path_manually(utility_type):
         setting_menu()
     elif menu_stage == '2':
         main_menu()
-
-
 
 
 main_menu()
